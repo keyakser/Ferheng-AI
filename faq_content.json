@@ -1,0 +1,16 @@
+{
+  "faq1Q": "What is Ferheng AI?",
+  "faq1A": "Ferheng AI is an advanced AI-powered dictionary designed to provide precise translations and grammatical insights for Kurdish dialects.",
+  "faq2Q": "Which Kurdish dialects are supported?",
+  "faq2A": "We support all three major Kurdish dialects: Kurmanji (Northern Kurdish), Sorani (Central Kurdish), and Zazaki (Dimili). Each dialect preserves its unique grammatical structures and script.",
+  "faq3Q": "Is FerhengAI free to use?",
+  "faq3A": "Yes! The free plan offers 5 translations per day across all three dialects. For unlimited translations, history sync, and an ad-free experience, you can upgrade to our Personal plan.",
+  "faq4Q": "How accurate are the translations?",
+  "faq4A": "Our translations use state-of-the-art AI language models (Gemini & Claude) with a specialized verification layer for grammatical gender accuracy in Kurmanji and Zazaki — ensuring linguistically precise results.",
+  "faq5Q": "Can I use it on my phone?",
+  "faq5A": "Absolutely. Kurdolingo is fully responsive and works beautifully on mobile phones, tablets, and desktop browsers. No app installation required.",
+  "faq6Q": "How do I save my favorite translations?",
+  "faq6A": "Create a free account and click the heart icon on any translation to save it. Your favorites sync across all your devices automatically.",
+  "faq7Q": "Is there an institutional plan for schools?",
+  "faq7A": "Yes! Our Institution plan is designed for schools, universities, and organizations. It includes an admin dashboard, user management, invite codes, usage analytics, and dedicated support."
+}

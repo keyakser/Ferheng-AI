@@ -1,0 +1,174 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId} (Firebase Auth UID)
+    // Fields:
+    //   - id: string (required)
+    //   - name: string (required)
+    //   - email: string (required)
+    //   - role: string (required, 'admin' | 'user')
+    //   - plan: string (optional, 'free' | 'pro' | 'enterprise')
+    //   - createdAt: timestamp (required)
+    //   - lastLogin: timestamp (required)
+    //
+    // Collection: activities
+    // Document ID: {activityId} (Auto-generated)
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - type: string (required, 'login' | 'logout' | 'search' | 'favorite')
+    //   - details: string (required)
+    //   - timestamp: number (required)
+    //
+    // Collection: ads
+    // Document ID: {adId} (Auto-generated)
+    // Fields:
+    //   - type: string (required, 'adsense' | 'manual')
+    //   - content: string (required)
+    //   - link: string (optional)
+    //   - active: boolean (required)
+    //   - createdAt: number (required)
+    //
+    // Collection: api_usage
+    // Document ID: {usageId} (Auto-generated)
+    // Fields:
+    //   - model: string (required)
+    //   - tokens: number (required)
+    //   - estimatedCost: number (required)
+    //   - timestamp: number (required)
+    //   - uid: string (optional)
+    //
+    // Collection: discounts
+    // Document ID: {discountId} (Auto-generated)
+    // Fields:
+    //   - code: string (required, < 50 chars)
+    //   - percentage: number (required, 0-100)
+    //   - active: boolean (required)
+    //   - createdAt: number (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        (request.auth.token.email == "cihadilbas@gmail.com" && request.auth.token.email_verified == true)
+      );
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.id is string &&
+             data.name is string && data.name.size() < 100 &&
+             data.email is string && data.email.size() < 100 &&
+             data.role in ['admin', 'user'] &&
+             (data.plan == null || data.plan in ['free', 'pro', 'enterprise']) &&
+             (data.apiUsage == null || data.apiUsage is number) &&
+             (data.translationCount == null || data.translationCount is number) &&
+             (data.loginCount == null || data.loginCount is number) &&
+             (data.dailySearchCount == null || data.dailySearchCount is number) &&
+             (data.lastSearchDate == null || data.lastSearchDate is string);
+    }
+
+    function isValidActivity(data) {
+      return data.uid is string &&
+             data.email is string &&
+             data.type in ['login', 'logout', 'search', 'favorite'] &&
+             data.details is string && data.details.size() < 1000 &&
+             data.timestamp is number;
+    }
+
+    function isValidAd(data) {
+      return data.type in ['adsense', 'manual'] &&
+             data.content is string && data.content.size() < 5000 &&
+             (data.link == null || (data.link is string && data.link.size() < 1000)) &&
+             data.active is bool &&
+             data.createdAt is number;
+    }
+
+    function isValidApiUsage(data) {
+      return data.model is string &&
+             data.tokens is number &&
+             data.estimatedCost is number &&
+             data.timestamp is number &&
+             (data.uid == null || data.uid is string);
+    }
+
+    function isValidDiscount(data) {
+      return data.code is string && data.code.size() > 0 && data.code.size() < 50 &&
+             data.percentage is number && data.percentage >= 0 && data.percentage <= 100 &&
+             data.active is bool &&
+             data.createdAt is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && 
+                      isValidUser(request.resource.data) && 
+                      (isOwner(userId) || isAdmin()) &&
+                      (request.resource.data.role == 'user' || isAdmin());
+      allow update: if isAuthenticated() && 
+                      (isAdmin() || (isValidUser(request.resource.data) && isOwner(userId) && request.resource.data.role == resource.data.role));
+    }
+
+    match /activities/{activityId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && isValidActivity(request.resource.data) && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /ads/{adId} {
+      allow read: if resource.data.active == true || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    match /api_usage/{usageId} {
+      allow read: if isAdmin();
+      allow create: if isValidApiUsage(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    match /discounts/{discountId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && isValidDiscount(request.resource.data);
+      allow update: if isAdmin() && isValidDiscount(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

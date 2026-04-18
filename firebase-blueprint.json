@@ -1,0 +1,101 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user profile and role information.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "plan": { "type": "string", "enum": ["free", "pro", "enterprise"] },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "createdAt": { "type": "number" },
+        "lastLogin": { "type": "number" },
+        "apiUsage": { "type": "number" },
+        "translationCount": { "type": "number" },
+        "loginCount": { "type": "number" },
+        "dailySearchCount": { "type": "number" },
+        "lastSearchDate": { "type": "string" }
+      },
+      "required": ["id", "email", "role"]
+    },
+    "Activity": {
+      "title": "User Activity Log",
+      "description": "Logs user actions like login, logout, and search.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "type": { "type": "string", "enum": ["login", "logout", "search", "favorite"] },
+        "details": { "type": "string" },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["uid", "type", "timestamp"]
+    },
+    "Ad": {
+      "title": "Advertisement",
+      "description": "Stores advertisement configurations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["adsense", "manual"] },
+        "content": { "type": "string" },
+        "link": { "type": "string" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["type", "content", "active"]
+    },
+    "ApiUsage": {
+      "title": "API Usage Log",
+      "description": "Tracks Gemini API usage and costs.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "model": { "type": "string" },
+        "tokens": { "type": "number" },
+        "estimatedCost": { "type": "number" },
+        "uid": { "type": "string" }
+      },
+      "required": ["timestamp", "model", "tokens", "estimatedCost"]
+    },
+    "Discount": {
+      "title": "Discount Code",
+      "description": "Stores discount codes.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "percentage": { "type": "number" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["code", "percentage", "active"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Individual user profiles."
+    },
+    "/activities/{activityId}": {
+      "schema": "Activity",
+      "description": "Global activity logs."
+    },
+    "/ads/{adId}": {
+      "schema": "Ad",
+      "description": "Advertisement configurations."
+    },
+    "/api_usage/{usageId}": {
+      "schema": "ApiUsage",
+      "description": "API usage tracking logs."
+    },
+    "/discounts/{discountId}": {
+      "schema": "Discount",
+      "description": "Discount codes."
+    }
+  }
+}
