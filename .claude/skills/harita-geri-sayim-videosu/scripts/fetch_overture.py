@@ -33,6 +33,7 @@ def main():
     ap.add_argument('--out', required=True)
     ap.add_argument('--release')
     ap.add_argument('--skip-buildings', action='store_true', help='Büyük şehirlerde bina verisi çok büyükse atla')
+    ap.add_argument('--only', nargs='+', choices=['places', 'segment', 'water', 'building'], help='Yalnızca bu katmanları indir')
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     rel = a.release or latest_release()
@@ -42,8 +43,10 @@ def main():
         kw['proxy_options'] = os.environ['HTTPS_PROXY']
     fs = pfs.S3FileSystem(**kw)
     x0, y0, x1, y1 = a.bbox
-    f = ((pc.field('bbox', 'xmin') > x0) & (pc.field('bbox', 'xmax') < x1) &
-         (pc.field('bbox', 'ymin') > y0) & (pc.field('bbox', 'ymax') < y1))
+    # Kutuyla kesişen her şey (Boğaz, nehir gibi kutudan taşan büyük su alanları da gelsin);
+    # geometriler build_mapdata.py'de kutuya kırpılır.
+    f = ((pc.field('bbox', 'xmax') > x0) & (pc.field('bbox', 'xmin') < x1) &
+         (pc.field('bbox', 'ymax') > y0) & (pc.field('bbox', 'ymin') < y1))
 
     def fetch(theme, typ, cols):
         t0 = time.time()
@@ -53,23 +56,28 @@ def main():
         print(f'{typ}: {tb.num_rows} kayıt ({time.time() - t0:.0f} sn)')
         return tb
 
-    places = fetch('places', 'place', ['id', 'names', 'basic_category', 'categories', 'addresses', 'phones', 'bbox', 'confidence', 'operating_status'])
-    rows = []
-    for r in places.to_pylist():
-        b = r['bbox']
-        rows.append({
-            'name': (r.get('names') or {}).get('primary'),
-            'category': r.get('basic_category') or ((r.get('categories') or {}).get('primary')),
-            'address': '; '.join(x.get('freeform') or '' for x in (r.get('addresses') or [])),
-            'phones': r.get('phones') or [],
-            'lat': round(b['ymin'], 6), 'lon': round(b['xmin'], 6),
-            'confidence': r.get('confidence'), 'status': r.get('operating_status'),
-        })
-    json.dump(rows, open(os.path.join(a.out, 'places.json'), 'w'), ensure_ascii=False)
-    pq.write_table(fetch('transportation', 'segment', ['id', 'geometry', 'class', 'subtype', 'names']), os.path.join(a.out, 'segment.parquet'))
-    pq.write_table(fetch('base', 'water', ['id', 'geometry', 'class', 'subtype', 'names']), os.path.join(a.out, 'water.parquet'))
-    if not a.skip_buildings:
-        pq.write_table(fetch('buildings', 'building', ['id', 'geometry']), os.path.join(a.out, 'building.parquet'))
+    want = lambda k: not a.only or k in a.only
+    json.dump({'bbox': a.bbox}, open(os.path.join(a.out, 'bbox.json'), 'w'))
+    if want('places'):
+      places = fetch('places', 'place', ['id', 'names', 'basic_category', 'categories', 'addresses', 'phones', 'bbox', 'confidence', 'operating_status'])
+      rows = []
+      for r in places.to_pylist():
+          b = r['bbox']
+          rows.append({
+              'name': (r.get('names') or {}).get('primary'),
+              'category': r.get('basic_category') or ((r.get('categories') or {}).get('primary')),
+              'address': '; '.join(x.get('freeform') or '' for x in (r.get('addresses') or [])),
+              'phones': r.get('phones') or [],
+              'lat': round(b['ymin'], 6), 'lon': round(b['xmin'], 6),
+              'confidence': r.get('confidence'), 'status': r.get('operating_status'),
+          })
+      json.dump(rows, open(os.path.join(a.out, 'places.json'), 'w'), ensure_ascii=False)
+    if want('segment'):
+        pq.write_table(fetch('transportation', 'segment', ['id', 'geometry', 'class', 'subtype', 'names']), os.path.join(a.out, 'segment.parquet'))
+    if want('water'):
+        pq.write_table(fetch('base', 'water', ['id', 'geometry', 'class', 'subtype', 'names']), os.path.join(a.out, 'water.parquet'))
+    if want('building') and not a.skip_buildings:
+        pq.write_table(fetch('buildings', 'building', ['id', 'geometry', 'height', 'num_floors', 'names']), os.path.join(a.out, 'building.parquet'))
 
 
 if __name__ == '__main__':

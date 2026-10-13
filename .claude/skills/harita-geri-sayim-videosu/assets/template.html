@@ -37,6 +37,8 @@ async function load(){
   M.roads.forEach(r=>r.bb=bboxOf(r[2])); M.roads.sort((a,b)=>a[0]-b[0]);
   M.bld=M.bld.map(a=>({a,bb:bboxOf(a)})); M.water.forEach(w=>w.bb=bboxOf(w[2]));
   DATA.forEach(d=>{[d.mx,d.my]=geo(d.lat,d.lon); d.streets=nearStreets(d)});
+  // isteğe bağlı fotoğraflar (item.photo: WORK içindeki dosya yolu, item.photo_credit: yazar/lisans)
+  await Promise.all(DATA.filter(d=>d.photo).map(async d=>{ const im=new Image(); im.src=d.photo; try{ await im.decode(); d.img=im; }catch(e){ console.error('foto yüklenemedi: '+d.photo); } }));
   // otomatik kadraj: tüm öğeleri kapsayan görünüm
   const xs=DATA.map(d=>d.mx), ys=DATA.map(d=>d.my);
   const cx=(Math.min(...xs)+Math.max(...xs))/2, cy=(Math.min(...ys)+Math.max(...ys))/2;
@@ -152,7 +154,7 @@ function scene(u, idx){
   const it=DATA[idx], one=it.rank===1;
   const c={...CITYV,sx:W/2,sy:980}, e=easeIO(prog(u,0.1,Math.min(2.2,SCENE*0.4)));
   const sT=CFG.zoom_scale||1.6, s=Math.exp(lerp(Math.log(c.s),Math.log(sT),e)), wt=clamp((s-c.s)/(sT-c.s));
-  const cam={x:lerp(c.x,it.mx,wt), y:lerp(c.y,it.my,wt), sx:W/2, sy:lerp(980,1000,e), s};
+  const cam={x:lerp(c.x,it.mx,wt), y:lerp(c.y,it.my,wt), sx:it.img?lerp(W/2,300,e):W/2, sy:lerp(980,1000,e), s};
   drawMap(cam);
   for(const o of DATA.slice(0,idx)){ const [x,y]=W2S(cam,o.mx,o.my); if(x<-50||x>W+50||y<-50||y>H+50) continue;
     g.fillStyle=C.gold; g.strokeStyle='#fff'; g.lineWidth=2.5; g.beginPath(); g.arc(x,y,9,0,7); g.fill(); g.stroke(); }
@@ -160,6 +162,7 @@ function scene(u, idx){
   const la=easeOut(prog(u,tPin+0.3,tPin+0.9)); if(la>0&&CFG.street_labels!==false) it.streets.forEach(st=>streetLabel(cam,st,la));
   const [px,py]=W2S(cam,it.mx,it.my); pin(px,py,prog(u,tPin,tPin+0.5),u,String(it.rank),1.3,one);
   topShade(800); bottomShade(1200);
+  if(it.img) photoCard(it,u);
   const ip=easeOut(prog(u,0.2,0.8));
   g.save(); g.globalAlpha=ip; g.translate(0,-(1-ip)*50);
   g.save(); g.translate(W/2,365); const bsc=back(prog(u,0.2,0.75)); g.scale(bsc,bsc);
@@ -192,6 +195,21 @@ function scene(u, idx){
   const pw=W-160; for(let k=0;k<N;k++){ const x=80+k*pw/N; g.fillStyle='rgba(255,255,255,0.18)'; rr(x+4,172,pw/N-8,8,4); g.fill();
     const f=k<idx?1:k===idx?clamp(u/SCENE):0; if(f>0){ g.fillStyle=C.ember; rr(x+4,172,(pw/N-8)*f,8,4); g.fill(); } }
   const f=Math.max(1-prog(u,0,0.25), prog(u,SCENE-0.3,SCENE)); if(f>0){g.fillStyle=`rgba(0,0,0,${f})`;g.fillRect(0,0,W,H)}
+}
+
+// polaroid tarzı foto kartı: sağda, hafif eğik; altında künye
+function photoCard(it,u){
+  const p=easeOut(prog(u,0.9,1.5)); if(p<=0) return;
+  const fw=440, fh=560, x=W-fw/2-50, y=990, im=it.img;
+  g.save(); g.globalAlpha=p; g.translate(x+(1-p)*200,y); g.rotate((it.photo_tilt??3)*Math.PI/180*(0.4+0.6*p));
+  const zoom=1+0.06*prog(u,1,SCENE); // hafif Ken Burns
+  g.shadowColor='rgba(0,0,0,0.6)'; g.shadowBlur=40; g.fillStyle='#f8f3ea'; g.fillRect(-fw/2-16,-fh/2-16,fw+32,fh+76); g.shadowBlur=0;
+  g.save(); g.beginPath(); g.rect(-fw/2,-fh/2,fw,fh); g.clip();
+  const sc=Math.max(fw/im.width,fh/im.height)*zoom, dw=im.width*sc, dh=im.height*sc;
+  const fx=it.photo_focus?.[0]??0.5, fy=it.photo_focus?.[1]??0.5;
+  g.drawImage(im,-fw/2-(dw-fw)*fx,-fh/2-(dh-fh)*fy,dw,dh); g.restore();
+  if(it.photo_credit){ g.fillStyle='#5a4a3c'; g.textAlign='center'; g.textBaseline='middle'; fitFont(it.photo_credit,500,17,fw,11,'Inter'); g.fillText(it.photo_credit,0,fh/2+32); }
+  g.restore();
 }
 
 function finale(t){

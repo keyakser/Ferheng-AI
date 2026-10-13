@@ -5,6 +5,9 @@
 | Alan | Tür | Açıklama |
 |---|---|---|
 | `items` | dizi | **Zorunlu.** Her öğe: `rank` (1 = en iyi), `name`, isteğe bağlı `sub` (alt isim), `rating` + `count` **veya** `stat` (puan yoksa serbest metin, ör. "1.200 m", "1568"), `lat`, `lon` (yalnızca harita içindir, ekrana yazılmaz), `addr` (2 satırlık dizi), `area` (ilçe/semt). |
+| `items[].photo` | metin | İsteğe bağlı. WORK içindeki gerçek fotoğraf dosyası (ör. `photos/1.jpg`). Varsa sahnede sağda eğik bir foto kartı çıkar, harita pini sola kayar. Yalnızca lisansı uygun gerçek fotoğraf kullan (ör. Wikimedia Commons CC BY/CC BY-SA); üretilmiş görseli "gerçek fotoğraf" diye kullanma. |
+| `items[].photo_credit` | metin | Foto kartının altındaki künye: "Foto: Yazar · CC BY-SA 4.0 · Wikimedia Commons". CC lisansları için zorunlu say. |
+| `items[].photo_focus` | [x, y] | Kırpma odağı (0–1). Uzun binalar için `[0.5, 0.2]` gibi üst kısma odaklan. |
 | `countdown` | bool | `true` (varsayılan): en büyük sıradan 1'e. `false`: 1'den aşağı. |
 | `target_seconds` | sayı | Toplam süre hedefi (varsayılan 60). Sahne süresi = (hedef − giriş − final) / öğe sayısı, en az 3,5 sn. |
 | `scene_seconds`, `intro_seconds`, `final_seconds` | sayı | Elle süre vermek için (varsayılan: hesaplanır / 4 / 12). |
