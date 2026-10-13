@@ -1,0 +1,240 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Harita Geri Sayım</title>
+<style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body><canvas id="c" width="1080" height="1920"></canvas>
+<script>
+// Dikey (1080x1920) geri sayım videosu şablonu. Tüm içerik config.json'dan, harita mapdata.json'dan gelir.
+// Akış: giriş → her öğe için sahne (şehirden mekâna uçuş + pin + bilgi + adres) → final haritası (+ isteğe bağlı yakın plan).
+const W = 1080, H = 1920;
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+let CFG, DATA, N, M, INTRO, SCENE, FINAL, TOTAL, C, CITYV, ALLV;
+
+const DEF_PALETTE = {ember:'#ff7a1a', gold:'#ffc247', cream:'#f6ead8', red:'#e0392d', muted:'#c9b9a3', ink:'#140f0c',
+  land:'#221a14', land2:'#2a2019', bld:'#3b2e24', bldS:'#4d3c2f', water:'#1e5a73', waterS:'#4aa3c4',
+  roadMajor:'#ff9a3d', roadMid:'#f1cf9e', roadMinor:'#a8927a', casing:'#120c08', shade:'14,9,6', cardText:'#b5321f'};
+
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x)), prog=(t,a,b)=>clamp((t-a)/(b-a));
+const easeOut=x=>1-Math.pow(1-x,3), easeIO=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+const back=x=>{const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2)};
+const lerp=(a,b,t)=>a+(b-a)*t;
+const fmt=v=>CFG.decimal_comma===false?v.toFixed(1):v.toFixed(1).replace('.',',');
+function rr(x,y,w,h,r){g.beginPath();g.moveTo(x+r,y);g.arcTo(x+w,y,x+w,y+h,r);g.arcTo(x+w,y+h,x,y+h,r);g.arcTo(x,y+h,x,y,r);g.arcTo(x,y,x+w,y,r);g.closePath()}
+function fitFont(txt,weight,size,maxW,min=30,fam='Inter Display, Inter'){let s=size;g.font=`${weight} ${s}px ${fam}`;while(g.measureText(txt).width>maxW&&s>min){s-=2;g.font=`${weight} ${s}px ${fam}`}return s}
+function geo(lat,lon){const [la0,lo0,kx,ky]=M.origin; return [(lon-lo0)*kx, (la0-lat)*ky]}
+function bboxOf(a){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(let i=0;i<a.length;i+=2){x0=Math.min(x0,a[i]);x1=Math.max(x1,a[i]);y0=Math.min(y0,a[i+1]);y1=Math.max(y1,a[i+1])}return [x0,y0,x1,y1]}
+
+async function load(){
+  CFG = await (await fetch('config.json')).json();
+  M = await (await fetch('mapdata.json')).json();
+  C = Object.assign({}, DEF_PALETTE, CFG.palette||{});
+  // countdown: true → en düşük sıradan 1'e; false → 1'den aşağı
+  const items = CFG.items.slice().sort((a,b)=>a.rank-b.rank);
+  DATA = CFG.countdown===false ? items : items.reverse();
+  N = DATA.length;
+  INTRO = CFG.intro_seconds ?? 4; FINAL = CFG.final_seconds ?? 12;
+  SCENE = CFG.scene_seconds ?? Math.max(3.5, ((CFG.target_seconds ?? 60) - INTRO - FINAL) / N);
+  TOTAL = INTRO + SCENE*N + FINAL; window.TOTAL = TOTAL;
+  M.roads.forEach(r=>r.bb=bboxOf(r[2])); M.roads.sort((a,b)=>a[0]-b[0]);
+  M.bld=M.bld.map(a=>({a,bb:bboxOf(a)})); M.water.forEach(w=>w.bb=bboxOf(w[2]));
+  DATA.forEach(d=>{[d.mx,d.my]=geo(d.lat,d.lon); d.streets=nearStreets(d)});
+  // otomatik kadraj: tüm öğeleri kapsayan görünüm
+  const xs=DATA.map(d=>d.mx), ys=DATA.map(d=>d.my);
+  const cx=(Math.min(...xs)+Math.max(...xs))/2, cy=(Math.min(...ys)+Math.max(...ys))/2;
+  const sw=Math.max(800,Math.max(...xs)-Math.min(...xs)), sh=Math.max(800,Math.max(...ys)-Math.min(...ys));
+  ALLV = {x:cx, y:cy, s:Math.min(860/sw, 640/sh)};
+  CITYV = {x:cx, y:cy, s:Math.min(980/sw, 760/sh)*0.9};
+  await document.fonts.ready; window.READY=true;
+}
+function nearStreets(d){
+  const best={};
+  for(const r of M.roads){ const nm=r[1]; if(!nm||r[0]<1) continue;
+    const a=r[2]; if(r.bb[0]>d.mx+300||r.bb[2]<d.mx-300||r.bb[1]>d.my+300||r.bb[3]<d.my-300) continue;
+    let minD=1e9;
+    for(let i=0;i<a.length-2;i+=2){
+      const ax=a[i],ay=a[i+1],bx=a[i+2],by=a[i+3],dx=bx-ax,dy=by-ay,L=Math.hypot(dx,dy)||1;
+      const tt=clamp(((d.mx-ax)*dx+(d.my-ay)*dy)/(L*L)); minD=Math.min(minD,Math.hypot(ax+dx*tt-d.mx,ay+dy*tt-d.my));
+      for(let k=0;k<=4;k++){ const px=ax+dx*k/4, py=ay+dy*k/4, dist=Math.hypot(px-d.mx,py-d.my), sc=Math.abs(dist-110);
+        if(dist<50||dist>220||L<25) continue;
+        if(!best[nm]||sc<best[nm].sc) best[nm]={nm,sc,x:px,y:py,ang:Math.atan2(dy,dx)}; }
+    }
+    if(best[nm]) best[nm].near=Math.min(best[nm].near??1e9,minD);
+  }
+  const cand=Object.values(best).filter(s=>s.near<90).sort((a,b)=>a.near-b.near), out=[];
+  for(const c of cand){ if(out.every(o=>Math.hypot(o.x-c.x,o.y-c.y)>140)) out.push(c); if(out.length==3) break; }
+  return out;
+}
+
+// ---------- harita çizimi (özgün vektör stil) ----------
+function W2S(cam,x,y){return [cam.sx+(x-cam.x)*cam.s, cam.sy+(y-cam.y)*cam.s]}
+function drawMap(cam){
+  g.save();
+  const bg=g.createLinearGradient(0,0,0,H); bg.addColorStop(0,C.land2); bg.addColorStop(1,C.land); g.fillStyle=bg; g.fillRect(0,0,W,H);
+  const vx0=cam.x-cam.sx/cam.s, vy0=cam.y-cam.sy/cam.s, vx1=vx0+W/cam.s, vy1=vy0+H/cam.s;
+  const vis=bb=>!(bb[0]>vx1||bb[2]<vx0||bb[1]>vy1||bb[3]<vy0);
+  const path=a=>{g.beginPath();for(let i=0;i<a.length;i+=2){const X=cam.sx+(a[i]-cam.x)*cam.s,Y=cam.sy+(a[i+1]-cam.y)*cam.s;i?g.lineTo(X,Y):g.moveTo(X,Y)}};
+  g.lineCap='round'; g.lineJoin='round';
+  for(const w of M.water){ if(!vis(w.bb)) continue; path(w[2]);
+    if(w[0]){ g.closePath(); g.fillStyle=C.water; g.fill(); g.strokeStyle=C.waterS; g.lineWidth=Math.max(1.5,3*Math.min(1,cam.s)); g.stroke(); }
+    else { const ww=w[1]==='river'?40:w[1]==='canal'?8:4; g.strokeStyle=C.water; g.lineWidth=Math.max(1.5,ww*cam.s); g.stroke(); } }
+  g.fillStyle=C.bld; g.strokeStyle=C.bldS; g.lineWidth=1;
+  for(const b of M.bld){ if(!vis(b.bb)) continue; if(cam.s<0.25&&(b.bb[2]-b.bb[0])*cam.s<1.2) continue; path(b.a); g.closePath(); g.fill(); if(cam.s>0.4) g.stroke(); }
+  const roadW=c=>(c>=5?18:c>=4?14:c>=3?10:c>=2?7:4), minS=c=>c>=4?0:c>=3?0.1:c>=2?0.22:0.5;
+  for(const pass of [0,1]) for(const r of M.roads){ const c=r[0]; if(cam.s<minS(c)||!vis(r.bb)) continue;
+    const w=Math.max(c>=4?2.2:1.1, roadW(c)*Math.min(1.2,cam.s)); path(r[2]);
+    if(pass===0){ g.strokeStyle=C.casing; g.lineWidth=w+Math.max(2,3*Math.min(1,cam.s)); }
+    else { g.strokeStyle=c>=4?C.roadMajor:c>=3?C.roadMid:C.roadMinor; g.globalAlpha=c>=4?0.95:c>=2?0.8:0.55; g.lineWidth=w; }
+    g.stroke(); g.globalAlpha=1; }
+  const la=clamp((0.5-cam.s)/0.3);
+  if(la>0){ g.globalAlpha=la*0.8; g.textAlign='center'; g.textBaseline='middle';
+    for(const [t,lat,lon] of (CFG.district_labels||[])){ const [x,y]=W2S(cam,...geo(lat,lon));
+      g.font='800 30px Inter'; g.lineWidth=6; g.strokeStyle=`rgba(${C.shade},0.9)`; g.strokeText(t,x,y); g.fillStyle=C.cream; g.fillText(t,x,y); }
+    for(const [t,lat,lon] of (CFG.water_labels||[])){ const [x,y]=W2S(cam,...geo(lat,lon)); g.font='italic 700 28px Inter'; g.fillStyle=C.waterS; g.fillText(t,x,y); }
+    g.globalAlpha=1; }
+  g.restore();
+}
+function pin(x,y,p,t,label,big=1,gold=false){
+  if(p<=0) return; const drop=easeOut(clamp(p)), yy=y-(1-drop)*260*big;
+  g.save(); g.globalAlpha=clamp(p*3);
+  if(p>=1){ const ph=(t*1.1)%1; g.strokeStyle=`rgba(255,194,71,${1-ph})`; g.lineWidth=4*big; g.beginPath(); g.ellipse(x,y,(12+ph*70)*big,(6+ph*35)*big,0,0,7); g.stroke(); }
+  g.fillStyle='rgba(0,0,0,0.5)'; g.beginPath(); g.ellipse(x,y+2,14*big*drop,6*big*drop,0,0,7); g.fill();
+  g.translate(x,yy); g.scale(big,big); g.shadowColor='rgba(0,0,0,0.6)'; g.shadowBlur=16;
+  g.fillStyle=gold?C.gold:C.red; g.beginPath(); g.moveTo(0,0); g.bezierCurveTo(-34,-44,-28,-88,0,-88); g.bezierCurveTo(28,-88,34,-44,0,0); g.fill();
+  g.shadowBlur=0; g.fillStyle='#fff'; g.beginPath(); g.arc(0,-58,20,0,7); g.fill();
+  g.fillStyle=gold?'#7a4b00':C.red; g.font='900 22px Inter'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(label,0,-57); g.restore();
+}
+function badgePin(x,y,p,num,gold,sz=1){
+  if(p<=0) return; const s=back(clamp(p))*sz;
+  g.save(); g.translate(x,y); g.globalAlpha=clamp(p*3);
+  g.strokeStyle='rgba(255,255,255,0.9)'; g.lineWidth=3; g.beginPath(); g.moveTo(0,0); g.lineTo(0,-26*s); g.stroke();
+  g.fillStyle='rgba(0,0,0,0.5)'; g.beginPath(); g.ellipse(0,0,7,3,0,0,7); g.fill();
+  g.translate(0,-46*s); g.scale(s,s); g.beginPath(); g.arc(0,0,23,0,7); g.fillStyle=gold?C.gold:C.red; g.shadowColor='rgba(0,0,0,0.6)'; g.shadowBlur=10; g.fill(); g.shadowBlur=0;
+  g.lineWidth=3; g.strokeStyle='#fff'; g.stroke(); g.fillStyle=gold?'#3a2300':'#fff'; g.font='900 23px Inter'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(num,0,1); g.restore();
+}
+function starPath(cx,cy,r){g.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,q=i%2?r*0.45:r;g.lineTo(cx+Math.cos(a)*q,cy+Math.sin(a)*q)}g.closePath()}
+function stars(cx,y,size,rating,fp,max=5){ const x=cx-(size*1.15*4+size)/2; const r5=rating/max*5;
+  for(let i=0;i<5;i++){ const sx=x+i*size*1.15+size/2, f=clamp(r5-i)*fp;
+    starPath(sx,y,size/2); g.fillStyle='rgba(255,255,255,0.2)'; g.fill();
+    g.save(); starPath(sx,y,size/2); g.clip(); g.fillStyle=C.gold; g.fillRect(sx-size/2,y-size/2,size*f,size); g.restore(); } }
+function streetLabel(cam,s,a){
+  const [x,y]=W2S(cam,s.x,s.y); if(y<760||y>1230) return;
+  let ang=s.ang; if(ang>Math.PI/2) ang-=Math.PI; if(ang<-Math.PI/2) ang+=Math.PI;
+  g.save(); g.globalAlpha=a; g.translate(x,y); g.rotate(ang); g.font='700 24px Inter'; g.textAlign='center'; g.textBaseline='middle';
+  const w=g.measureText(s.nm).width+24; rr(-w/2,-18,w,36,18); g.fillStyle='rgba(246,234,216,0.94)'; g.fill(); g.fillStyle=C.ink; g.fillText(s.nm,0,1); g.restore();
+}
+function topShade(h){const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,`rgba(${C.shade},0.97)`);gr.addColorStop(0.75,`rgba(${C.shade},0.85)`);gr.addColorStop(1,`rgba(${C.shade},0)`);g.fillStyle=gr;g.fillRect(0,0,W,h)}
+function bottomShade(y0){const gr=g.createLinearGradient(0,y0,0,H);gr.addColorStop(0,`rgba(${C.shade},0)`);gr.addColorStop(0.25,`rgba(${C.shade},0.85)`);gr.addColorStop(1,`rgba(${C.shade},0.98)`);g.fillStyle=gr;g.fillRect(0,y0,W,H-y0)}
+function scaleBar(cam,y){ const opts=[10,20,50,100,200,500,1000,2000,5000]; let m=opts[0]; for(const o of opts){ if(o*cam.s<=180) m=o; }
+  const px=m*cam.s, x=W-60-px; g.save(); g.strokeStyle=C.cream; g.lineWidth=3; g.beginPath(); g.moveTo(x,y-6); g.lineTo(x,y); g.lineTo(x+px,y); g.lineTo(x+px,y-6); g.stroke();
+  g.font='600 20px Inter'; g.fillStyle=C.cream; g.textAlign='center'; g.fillText(m>=1000?(m/1000)+' km':m+' m', x+px/2, y-14); g.restore(); }
+function credit(y){ g.save(); g.font='500 18px Inter'; g.fillStyle='rgba(246,234,216,0.6)'; g.textAlign='center'; g.fillText(CFG.credit||'Harita verisi: Overture Maps / OpenStreetMap', W/2, y); g.restore(); }
+function sparks(t){ const h=n=>{const s=Math.sin(n*127.1)*43758.5453;return s-Math.floor(s)};
+  for(let i=0;i<50;i++){ const sp=50+h(i)*90, life=H/sp+2, ph=((t+h(i+9)*life)%life)/life, x=h(i+3)*W+Math.sin(t*(0.6+h(i+5))+i)*30, y=H+20-ph*(H+60);
+  g.fillStyle=`rgba(255,${150+h(i+2)*80|0},40,${Math.sin(ph*Math.PI)*0.8})`; g.beginPath(); g.arc(x,y,1.5+h(i+7)*3,0,7); g.fill(); } }
+
+// ---------- sahneler ----------
+function intro(t){
+  drawMap({...CITYV,sx:W/2,sy:980,s:CITYV.s*lerp(0.8,1.05,easeOut(prog(t,0,INTRO)))});
+  g.fillStyle=`rgba(${C.shade},0.62)`; g.fillRect(0,0,W,H); if(CFG.sparks!==false) sparks(t);
+  g.textAlign='center'; g.textBaseline='alphabetic';
+  g.globalAlpha=easeOut(prog(t,0.2,1.0)); g.font='700 28px Inter'; g.fillStyle=C.gold;
+  (CFG.kicker||[]).forEach((l,i)=>g.fillText(l.split('').join(' '),W/2,640+i*44));
+  const s=back(prog(t,0.5,1.4)); g.save(); g.translate(W/2,860); g.scale(s,s); g.globalAlpha=clamp(s);
+  fitFont(CFG.title1||'',900,128,1000,60); g.fillStyle=C.cream; g.shadowColor='rgba(0,0,0,0.8)'; g.shadowBlur=30; g.fillText(CFG.title1||'',0,0); g.restore();
+  const s2=back(prog(t,0.9,1.8)); g.save(); g.translate(W/2,990); g.scale(s2,s2); g.globalAlpha=clamp(s2);
+  g.fillStyle=C.ember; g.shadowColor='rgba(0,0,0,0.8)'; g.shadowBlur=30;
+  (CFG.title2||[]).forEach((l,i)=>{fitFont(l,900,112,1000,56); g.fillText(l,0,i*120)}); g.restore();
+  g.globalAlpha=prog(t,1.8,2.5); g.font='italic 400 44px "Liberation Serif"'; g.fillStyle=C.cream;
+  (CFG.subtitle||[]).forEach((l,i)=>g.fillText(l.replace('{N}',N),W/2,1240+i*60));
+  g.globalAlpha=1; const o=prog(t,INTRO-0.4,INTRO); if(o>0){g.fillStyle=`rgba(0,0,0,${o})`;g.fillRect(0,0,W,H)}
+}
+
+function scene(u, idx){
+  const it=DATA[idx], one=it.rank===1;
+  const c={...CITYV,sx:W/2,sy:980}, e=easeIO(prog(u,0.1,Math.min(2.2,SCENE*0.4)));
+  const sT=CFG.zoom_scale||1.6, s=Math.exp(lerp(Math.log(c.s),Math.log(sT),e)), wt=clamp((s-c.s)/(sT-c.s));
+  const cam={x:lerp(c.x,it.mx,wt), y:lerp(c.y,it.my,wt), sx:W/2, sy:lerp(980,1000,e), s};
+  drawMap(cam);
+  for(const o of DATA.slice(0,idx)){ const [x,y]=W2S(cam,o.mx,o.my); if(x<-50||x>W+50||y<-50||y>H+50) continue;
+    g.fillStyle=C.gold; g.strokeStyle='#fff'; g.lineWidth=2.5; g.beginPath(); g.arc(x,y,9,0,7); g.fill(); g.stroke(); }
+  const tPin=Math.min(2.0,SCENE*0.38);
+  const la=easeOut(prog(u,tPin+0.3,tPin+0.9)); if(la>0&&CFG.street_labels!==false) it.streets.forEach(st=>streetLabel(cam,st,la));
+  const [px,py]=W2S(cam,it.mx,it.my); pin(px,py,prog(u,tPin,tPin+0.5),u,String(it.rank),1.3,one);
+  topShade(800); bottomShade(1200);
+  const ip=easeOut(prog(u,0.2,0.8));
+  g.save(); g.globalAlpha=ip; g.translate(0,-(1-ip)*50);
+  g.save(); g.translate(W/2,365); const bsc=back(prog(u,0.2,0.75)); g.scale(bsc,bsc);
+  if(one){ g.save(); g.translate(0,-104+Math.sin(u*3)*4); g.fillStyle=C.gold; g.shadowColor='rgba(255,194,71,0.9)'; g.shadowBlur=30;
+    g.beginPath(); g.moveTo(-52,16); g.lineTo(-62,-30); g.lineTo(-26,-4); g.lineTo(0,-44); g.lineTo(26,-4); g.lineTo(62,-30); g.lineTo(52,16); g.closePath(); g.fill(); g.restore(); }
+  g.beginPath(); g.arc(0,0,80,0,7); g.fillStyle=one?C.gold:C.ember; g.shadowColor='rgba(255,140,40,0.6)'; g.shadowBlur=40; g.fill(); g.shadowBlur=0;
+  const two=it.rank>=10; g.fillStyle=C.ink; g.textAlign='center'; g.textBaseline='middle';
+  g.font='900 28px Inter'; g.fillText('#',two?-48:-34,-10); g.font=`900 ${two?72:92}px Inter Display, Inter`; g.fillText(String(it.rank),two?12:10,4);
+  g.restore();
+  g.textAlign='center'; g.textBaseline='alphabetic';
+  fitFont(it.name,800,82,980,44); g.fillStyle=C.cream; g.shadowColor='rgba(0,0,0,0.7)'; g.shadowBlur=16; g.fillText(it.name,W/2,545); g.shadowBlur=0;
+  let y=545; if(it.sub){ g.font='600 38px Inter'; g.fillStyle=C.muted; g.fillText(it.sub,W/2,597); y=597; }
+  if(it.rating!=null){
+    const sp=prog(u,0.6,1.4);
+    stars(W/2-80,y+80,52,it.rating,easeOut(sp),CFG.rating_max||5);
+    g.font='800 64px Inter'; g.fillStyle=C.gold; g.textAlign='left'; g.fillText(fmt(it.rating*easeOut(sp)),W/2+108,y+102);
+    if(it.count!=null){ g.textAlign='center'; g.font='500 30px Inter'; g.fillStyle=C.muted; g.fillText(`${Math.round(it.count*easeOut(sp))} ${CFG.count_label||'değerlendirme'}`,W/2,y+158); }
+  } else if(it.stat){ g.textAlign='center'; g.font='800 60px Inter'; g.fillStyle=C.gold; g.fillText(it.stat,W/2,y+110); }
+  g.restore();
+  const ap=easeOut(prog(u,1.0,1.6));
+  if(ap>0&&it.addr){ g.save(); g.globalAlpha=ap; g.translate(0,(1-ap)*50);
+    const ay=1270, cw=940, cx=(W-cw)/2; rr(cx,ay,cw,240,28); g.fillStyle='rgba(246,234,216,0.96)'; g.fill();
+    g.fillStyle=one?C.gold:C.ember; rr(cx,ay,14,240,7); g.fill();
+    g.textAlign='left'; g.font='800 24px Inter'; g.fillStyle=C.cardText; g.fillText(CFG.address_label||'ADRES', cx+48, ay+52);
+    fitFont(it.addr[0]||'',700,42,cw-90,30,'Inter'); g.fillStyle=C.ink; g.fillText(it.addr[0]||'',cx+48,ay+108);
+    fitFont(it.addr[1]||'',600,36,cw-90,28,'Inter'); g.fillStyle='#3d2c20'; g.fillText(it.addr[1]||'',cx+48,ay+156);
+    if(it.area){ g.font='800 30px Inter'; g.fillStyle=C.cardText; g.fillText((it.area+(CFG.city?' / '+CFG.city:'')).toLocaleUpperCase('tr-TR'),cx+48,ay+208); }
+    g.restore(); }
+  scaleBar(cam,1555); credit(1600);
+  const pw=W-160; for(let k=0;k<N;k++){ const x=80+k*pw/N; g.fillStyle='rgba(255,255,255,0.18)'; rr(x+4,172,pw/N-8,8,4); g.fill();
+    const f=k<idx?1:k===idx?clamp(u/SCENE):0; if(f>0){ g.fillStyle=C.ember; rr(x+4,172,(pw/N-8)*f,8,4); g.fill(); } }
+  const f=Math.max(1-prog(u,0,0.25), prog(u,SCENE-0.3,SCENE)); if(f>0){g.fillStyle=`rgba(0,0,0,${f})`;g.fillRect(0,0,W,H)}
+}
+
+function finale(t){
+  const all={...ALLV,sx:W/2,sy:870}, cl=CFG.closeup;
+  let cam=all, z=0;
+  if(cl){ const [x,y]=geo(cl.lat,cl.lon), sur={x,y,sx:W/2,sy:900,s:cl.scale||2};
+    z=easeIO(prog(t,FINAL*0.54,FINAL*0.71));
+    const s=Math.exp(lerp(Math.log(all.s),Math.log(sur.s),z)), wt=(s-all.s)/(sur.s-all.s);
+    cam={x:lerp(all.x,sur.x,wt), y:lerp(all.y,sur.y,wt), sx:W/2, sy:lerp(all.sy,sur.sy,z), s}; }
+  drawMap(cam);
+  const step=Math.min(0.45,(FINAL*0.45)/N);
+  DATA.map((d,i)=>({d,i,p:W2S(cam,d.mx,d.my)})).sort((a,b)=>a.p[1]-b.p[1])
+    .forEach(({d,i,p})=>badgePin(p[0],p[1],prog(t,0.4+i*step,0.9+i*step),String(d.rank),d.rank===1,1.1));
+  if(cl&&cl.labels){ const la=easeOut(prog(t,FINAL*0.68,FINAL*0.75));
+    if(la>0) for(const d of DATA){ const o=cl.labels[String(d.rank)]; if(!o) continue; const [x,y]=W2S(cam,d.mx,d.my);
+      const lx=x+o[0], ly=y-50+o[1]; g.save(); g.globalAlpha=la; g.strokeStyle='rgba(255,255,255,0.9)'; g.lineWidth=2.5; g.beginPath(); g.moveTo(x,y-50); g.lineTo(lx,ly); g.stroke();
+      g.font='800 28px Inter'; const w=g.measureText(d.name).width+30, left=o[0]<0; rr(left?lx-w:lx,ly-24,w,48,24); g.fillStyle='rgba(246,234,216,0.95)'; g.fill();
+      g.fillStyle=C.ink; g.textAlign=left?'right':'left'; g.textBaseline='middle'; g.fillText(d.name,lx+(left?-15:15),ly+1); g.restore(); } }
+  topShade(440); bottomShade(1180);
+  g.save(); g.globalAlpha=easeOut(prog(t,0,0.6)); g.textAlign='center'; g.textBaseline='alphabetic';
+  const mt=CFG.map_title||['HARİTA']; fitFont(mt[0],900,62,980); g.fillStyle=C.cream; g.fillText(mt[0],W/2,300);
+  if(mt[1]){ fitFont(mt[1],900,62,980); g.fillStyle=C.ember; g.fillText(mt[1],W/2,370); }
+  g.font='500 28px Inter'; g.fillStyle=C.muted; g.fillText(z>0.5&&cl?cl.title:(CFG.map_subtitle||'{N} mekân, haritadaki yerlerinde').replace('{N}',N),W/2,420); g.restore();
+  const rows=Math.ceil(N/2), rh=Math.min(82,330/rows*1.2);
+  DATA.slice().sort((a,b)=>a.rank-b.rank).forEach((d,k)=>{ const i=DATA.indexOf(d); const p=easeOut(prog(t,0.4+i*step,0.9+i*step)); if(p<=0) return;
+    const col=k<rows?0:1, row=k%rows, x=col?560:60, y=1250+row*rh;
+    g.save(); g.globalAlpha=p; g.translate(0,(1-p)*30);
+    g.beginPath(); g.arc(x+26,y,24,0,7); g.fillStyle=d.rank===1?C.gold:C.red; g.fill(); g.strokeStyle='#fff'; g.lineWidth=2.5; g.stroke();
+    g.fillStyle=d.rank===1?'#3a2300':'#fff'; g.font='900 22px Inter'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(d.rank,x+26,y+1);
+    g.textAlign='left'; fitFont(d.name,700,27,400,20,'Inter'); g.fillStyle=C.cream; g.fillText(d.name,x+64,y-10);
+    const meta=[d.area, d.rating!=null?'★ '+fmt(d.rating):d.stat, d.count].filter(v=>v!=null&&v!=='').join(' · ');
+    g.font='500 20px Inter'; g.fillStyle=C.muted; g.fillText(meta,x+64,y+20); g.restore(); });
+  g.textBaseline='alphabetic'; scaleBar(cam,1690); credit(1735);
+  if(CFG.outro){ g.globalAlpha=easeOut(prog(t,FINAL*0.8,FINAL*0.85)); g.textAlign='center'; g.font='italic 400 64px "Liberation Serif"'; g.fillStyle=C.gold;
+    g.shadowColor='rgba(0,0,0,0.9)'; g.shadowBlur=20; g.fillText(CFG.outro,W/2,1610); g.shadowBlur=0; g.globalAlpha=1; }
+  const o=prog(t,FINAL-0.6,FINAL); if(o>0){g.fillStyle=`rgba(0,0,0,${o})`;g.fillRect(0,0,W,H)}
+}
+
+window.renderFrame=function(t){
+  g.setTransform(1,0,0,1,0,0); g.globalAlpha=1; g.textBaseline='alphabetic'; g.shadowBlur=0;
+  if(t<INTRO) intro(t);
+  else if(t<INTRO+SCENE*N){const k=Math.floor((t-INTRO)/SCENE); scene(t-INTRO-k*SCENE,k)}
+  else finale(t-INTRO-SCENE*N);
+};
+load().then(()=>{ if(!window.__RENDER__){const st=performance.now();(function loop(){renderFrame(((performance.now()-st)/1000)%TOTAL);requestAnimationFrame(loop)})()} });
+</script></body></html>

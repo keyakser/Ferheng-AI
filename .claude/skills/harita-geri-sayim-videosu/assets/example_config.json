@@ -1,0 +1,32 @@
+{
+  "city": "Diyarbakır",
+  "kicker": ["GOOGLE HARİTALAR", "PUANLARINA GÖRE"],
+  "title1": "DİYARBAKIR’IN",
+  "title2": ["EN İYİ", "CİĞERCİLERİ"],
+  "subtitle": ["En az 200 Google değerlendirmesi", "{N}’den 1’e geri sayım"],
+  "map_title": ["DİYARBAKIR", "CİĞER HARİTASI"],
+  "map_subtitle": "{N} mekân, haritadaki yerlerinde",
+  "count_label": "Google değerlendirmesi",
+  "address_label": "ADRES",
+  "outro": "Afiyet olsun!",
+  "credit": "Harita verisi: Overture Maps / OpenStreetMap · Puanlar: Google Haritalar",
+  "countdown": true,
+  "target_seconds": 60,
+  "intro_seconds": 4,
+  "final_seconds": 12,
+  "zoom_scale": 1.6,
+  "district_labels": [["KAYAPINAR", 37.9475, 40.1650], ["YENİŞEHİR", 37.9285, 40.2150], ["BAĞLAR", 37.9010, 40.1950], ["SUR", 37.9095, 40.2330]],
+  "water_labels": [["Dicle", 37.9000, 40.2535]],
+  "closeup": {"lat": 37.9156, "lon": 40.2365, "scale": 2.2, "title": "Yakın plan: Dağkapı – Sur",
+              "labels": {"3": [40, -140], "2": [-120, -70], "4": [-120, 100], "5": [110, -20]}},
+  "items": [
+    {"rank": 1, "name": "Diclekent Diyar Ciğer Evi", "rating": 4.9, "count": 322, "lat": 37.94245, "lon": 40.18240, "addr": ["Peyas Mah., 249. Sk. No:4", "Diclekent Villaları"], "area": "Kayapınar"},
+    {"rank": 2, "name": "Ciğerci İbo", "rating": 4.9, "count": 229, "lat": 37.91589, "lon": 40.23575, "addr": ["Cami Nebi Mah.", "Kıbrıs Cd. No:13"], "area": "Sur"},
+    {"rank": 3, "name": "Dağkapı Ciğercisi", "sub": "Hüseyin’in Yeri", "rating": 4.8, "count": 431, "lat": 37.91606, "lon": 40.23602, "addr": ["Cami Nebi Mah., Kıbrıs Cd.", "1. Çıkmaz No:3, Dağkapı Meydanı"], "area": "Sur"},
+    {"rank": 4, "name": "Ciğerim Ocakbaşı", "rating": 4.4, "count": 243, "lat": 37.91496, "lon": 40.23702, "addr": ["Cami Nebi Mah.", "Gazi Cd. No:3, Dağkapı"], "area": "Sur"},
+    {"rank": 5, "name": "Ciğerci Remzi Usta", "rating": 4.3, "count": 499, "lat": 37.91535, "lon": 40.23720, "addr": ["Cami Nebi Mah., Gazi Cd.", "Suakar Sk. No:3, Dağkapı"], "area": "Sur"},
+    {"rank": 6, "name": "Ciğerci Aslan Usta", "rating": 4.3, "count": 493, "lat": 37.92070, "lon": 40.21870, "addr": ["Kooperatifler Mah.", "Gevran Cd. No:3"], "area": "Yenişehir"},
+    {"rank": 7, "name": "Umut Ciğercisi", "rating": 4.3, "count": 433, "lat": 37.91814, "lon": 40.22873, "addr": ["Lise Cd., 4. Sk.", "Yeşim Apt. altı"], "area": "Yenişehir"},
+    {"rank": 8, "name": "Hacıbaba Ciğercisi", "rating": 4.3, "count": 222, "lat": 37.93256, "lon": 40.16430, "addr": ["Peyas Mah., Fırat Blv. No:150", "Gaziler son durak"], "area": "Kayapınar"}
+  ]
+}
