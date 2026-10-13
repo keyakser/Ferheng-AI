@@ -43,7 +43,7 @@ async function load(){
   const xs=DATA.map(d=>d.mx), ys=DATA.map(d=>d.my);
   const cx=(Math.min(...xs)+Math.max(...xs))/2, cy=(Math.min(...ys)+Math.max(...ys))/2;
   const sw=Math.max(800,Math.max(...xs)-Math.min(...xs)), sh=Math.max(800,Math.max(...ys)-Math.min(...ys));
-  ALLV = {x:cx, y:cy, s:Math.min(860/sw, 640/sh)};
+  ALLV = {x:cx, y:cy, s:Math.min(860/sw, 600/sh)};
   CITYV = {x:cx, y:cy, s:Math.min(980/sw, 760/sh)*0.9};
   await document.fonts.ready; window.READY=true;
 }
@@ -76,7 +76,7 @@ function drawMap(cam){
   const path=a=>{g.beginPath();for(let i=0;i<a.length;i+=2){const X=cam.sx+(a[i]-cam.x)*cam.s,Y=cam.sy+(a[i+1]-cam.y)*cam.s;i?g.lineTo(X,Y):g.moveTo(X,Y)}};
   g.lineCap='round'; g.lineJoin='round';
   for(const w of M.water){ if(!vis(w.bb)) continue; path(w[2]);
-    if(w[0]){ g.closePath(); g.fillStyle=C.water; g.fill(); g.strokeStyle=C.waterS; g.lineWidth=Math.max(1.5,3*Math.min(1,cam.s)); g.stroke(); }
+    if(w[0]){ g.closePath(); for(const h of (w[3]||[])){ for(let i=0;i<h.length;i+=2){const X=cam.sx+(h[i]-cam.x)*cam.s,Y=cam.sy+(h[i+1]-cam.y)*cam.s;i?g.lineTo(X,Y):g.moveTo(X,Y)} g.closePath(); } g.fillStyle=C.water; g.fill('evenodd'); g.strokeStyle=C.waterS; g.lineWidth=Math.max(1.5,3*Math.min(1,cam.s)); g.stroke(); }
     else { const ww=w[1]==='river'?40:w[1]==='canal'?8:4; g.strokeStyle=C.water; g.lineWidth=Math.max(1.5,ww*cam.s); g.stroke(); } }
   g.fillStyle=C.bld; g.strokeStyle=C.bldS; g.lineWidth=1;
   for(const b of M.bld){ if(!vis(b.bb)) continue; if(cam.s<0.25&&(b.bb[2]-b.bb[0])*cam.s<1.2) continue; path(b.a); g.closePath(); g.fill(); if(cam.s>0.4) g.stroke(); }
@@ -213,7 +213,7 @@ function photoCard(it,u){
 }
 
 function finale(t){
-  const all={...ALLV,sx:W/2,sy:870}, cl=CFG.closeup;
+  const all={...ALLV,sx:W/2,sy:820}, cl=CFG.closeup;
   let cam=all, z=0;
   if(cl){ const [x,y]=geo(cl.lat,cl.lon), sur={x,y,sx:W/2,sy:900,s:cl.scale||2};
     z=easeIO(prog(t,FINAL*0.54,FINAL*0.71));
@@ -233,9 +233,9 @@ function finale(t){
   const mt=CFG.map_title||['HARİTA']; fitFont(mt[0],900,62,980); g.fillStyle=C.cream; g.fillText(mt[0],W/2,300);
   if(mt[1]){ fitFont(mt[1],900,62,980); g.fillStyle=C.ember; g.fillText(mt[1],W/2,370); }
   g.font='500 28px Inter'; g.fillStyle=C.muted; g.fillText(z>0.5&&cl?cl.title:(CFG.map_subtitle||'{N} mekân, haritadaki yerlerinde').replace('{N}',N),W/2,420); g.restore();
-  const rows=Math.ceil(N/2), rh=Math.min(82,330/rows*1.2);
+  const rows=Math.ceil(N/2), rh=rows>4?68:82, legTop=rows>4?1215:1250;
   DATA.slice().sort((a,b)=>a.rank-b.rank).forEach((d,k)=>{ const i=DATA.indexOf(d); const p=easeOut(prog(t,0.4+i*step,0.9+i*step)); if(p<=0) return;
-    const col=k<rows?0:1, row=k%rows, x=col?560:60, y=1250+row*rh;
+    const col=k<rows?0:1, row=k%rows, x=col?560:60, y=legTop+row*rh;
     g.save(); g.globalAlpha=p; g.translate(0,(1-p)*30);
     g.beginPath(); g.arc(x+26,y,24,0,7); g.fillStyle=d.rank===1?C.gold:C.red; g.fill(); g.strokeStyle='#fff'; g.lineWidth=2.5; g.stroke();
     g.fillStyle=d.rank===1?'#3a2300':'#fff'; g.font='900 22px Inter'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(d.rank,x+26,y+1);
@@ -244,7 +244,7 @@ function finale(t){
     g.font='500 20px Inter'; g.fillStyle=C.muted; g.fillText(meta,x+64,y+20); g.restore(); });
   g.textBaseline='alphabetic'; scaleBar(cam,1690); credit(1735);
   if(CFG.outro){ g.globalAlpha=easeOut(prog(t,FINAL*0.8,FINAL*0.85)); g.textAlign='center'; g.font='italic 400 64px "Liberation Serif"'; g.fillStyle=C.gold;
-    g.shadowColor='rgba(0,0,0,0.9)'; g.shadowBlur=20; g.fillText(CFG.outro,W/2,1610); g.shadowBlur=0; g.globalAlpha=1; }
+    g.shadowColor='rgba(0,0,0,0.9)'; g.shadowBlur=20; g.fillText(CFG.outro,W/2,Math.max(1610,legTop+rows*rh+40)); g.shadowBlur=0; g.globalAlpha=1; }
   const o=prog(t,FINAL-0.6,FINAL); if(o>0){g.fillStyle=`rgba(0,0,0,${o})`;g.fillRect(0,0,W,H)}
 }
 

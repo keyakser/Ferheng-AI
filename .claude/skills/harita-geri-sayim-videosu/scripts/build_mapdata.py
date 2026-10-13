@@ -54,8 +54,14 @@ def main():
         for r in pq.read_table(wp).to_pylist():
             if r.get('class') == 'swimming_pool': continue
             g = load(r['geometry'])
-            for cs in parts(g):
-                data['water'].append([1 if 'Polygon' in g.geom_type else 0, r.get('class'), flat(cs)])
+            polys = [g] if g.geom_type == 'Polygon' else [x for x in getattr(g, 'geoms', []) if x.geom_type == 'Polygon']
+            if g.geom_type == 'MultiPolygon': polys = list(g.geoms)
+            for p in polys:  # dış halka + delikler (adalar/kara) → şablonda evenodd dolgu
+                data['water'].append([1, r.get('class'), flat(p.exterior.coords), [flat(h.coords) for h in p.interiors]])
+            lines = [g] if 'LineString' in g.geom_type else [x for x in getattr(g, 'geoms', []) if 'LineString' in x.geom_type]
+            for l in lines:
+                for cs in parts(l):
+                    data['water'].append([0, r.get('class'), flat(cs)])
     bp = os.path.join(wd, 'building.parquet')
     if os.path.exists(bp):
         for r in pq.read_table(bp).to_pylist():
