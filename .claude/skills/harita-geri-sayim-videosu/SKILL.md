@@ -1,6 +1,6 @@
 ---
 name: harita-geri-sayim-videosu
-description: Bir şehirdeki en iyi/en yüksek puanlı yerleri (restoran, kafe, müze, park, plaj, okul, eczane, tarihi yapı vb.) araştırıp doğrulayan ve bunları özgün çizim stilinde gerçek sokak haritası üzerinde gösteren, müzikli, dikey (1080x1920, Instagram Reels / TikTok / Shorts) "10'dan 1'e" geri sayım animasyon videosu üreten iş akışı. Kullanıcı "en iyi 10 ...", "top 10", "sıralama videosu", "geri sayım videosu", "reels / shorts / tiktok için video", "haritada göster", "Google Maps puanlarına göre", "şehrin en iyi ... animasyon" gibi bir şey istediğinde — puan kaynağını, şehri veya konuyu açıkça söylemese bile — bu skill'i kullan. Ayrıca bir yer listesini haritalı, konum pinli video/animasyon haline getirme isteklerinde de kullan.
+description: Bir şehirdeki en iyi/en yüksek puanlı yerleri (restoran, kafe, müze, park, plaj, okul, eczane, tarihi yapı vb.) araştırıp doğrulayan ve bunları özgün çizim stilinde gerçek sokak haritası üzerinde gösteren, konuya uygun özgün müzikli (her videoda yeniden bestelenen), dikey (1080x1920, Instagram Reels / TikTok / Shorts) "10'dan 1'e" geri sayım animasyon videosu üreten iş akışı. Kullanıcı "en iyi 10 ...", "top 10", "sıralama videosu", "geri sayım videosu", "reels / shorts / tiktok için video", "haritada göster", "Google Maps puanlarına göre", "şehrin en iyi ... animasyon" gibi bir şey istediğinde — puan kaynağını, şehri veya konuyu açıkça söylemese bile — bu skill'i kullan. Ayrıca bir yer listesini haritalı, konum pinli video/animasyon haline getirme isteklerinde de kullan.
 ---
 
 # Harita Geri Sayım Videosu
@@ -52,8 +52,8 @@ Pinler haritada metre hassasiyetinde görüneceği için her adres ve koordinat 
 ```bash
 python $SKILL_DIR/scripts/build_mapdata.py $WORK $WORK/mapdata.json
 cp $SKILL_DIR/assets/template.html $WORK/
-# config.json'u yaz (aşağıya bak), sonra süreyi öğrenip müziği üret:
-python $SKILL_DIR/scripts/music.py --out $WORK/music.wav --duration 60 --mode hicaz
+# config.json'u yaz (aşağıya bak), sonra konuya uygun müziği üret:
+python $SKILL_DIR/scripts/music.py --config $WORK/config.json --out $WORK/music.wav
 ```
 
 - **config.json**: `assets/example_config.json`'u örnek al; tüm alanlar `references/config.md`'de. Süre: `target_seconds` (varsayılan 60) → müzik süresi de bu olmalı (`intro + sahne×N + final`; şablon `TOTAL`'ı buna göre hesaplar).
@@ -61,7 +61,26 @@ python $SKILL_DIR/scripts/music.py --out $WORK/music.wav --duration 60 --mode hi
 - **Koordinatlar ekrana yazılmaz**; sadece pin konumu içindir. Adres kartı mahalle/cadde/sokak/no ve ilçe gösterir.
 - `district_labels` ile 3–6 semt adı, `water_labels` ile nehir/göl adı ekle (uzak planda görünür).
 - Birkaç öğe birbirine 300 m'den yakınsa `closeup` ekle (final yakın planı) ve etiket ofsetlerini çakışmayacak şekilde ver.
-- Müzik modu: Türk/Orta Doğu şehirleri için `hicaz`/`ussak`/`rast`, hüzünlü/tarihi için `nihavend`, nötr/neşeli için `major`.
+### Müzik: her videoda bağlama uygun ve özgün
+
+Müzik videonun duygusunu taşır; ciğerci videosunda saz + darbuka, gökdelen videosunda elektronik ritim gibi. Aynı parçayı her videoda kullanmak izleyicide "şablon" hissi bırakır. Bu yüzden müzik **her video için config'ten yeniden üretilir**:
+
+- **Stil seçimi** — `music.py` başlık, alt başlık ve öğe adlarındaki kelimelerden stili otomatik seçer ve çıktıda nedenini yazar. Seçimi konuya göre **sen değerlendir**: kelime eşleşmesi yanlışsa (ör. "tarihi kahvehaneler" lofi değil anadolu olmalı) `config.json` içine `"music": {"style": "..."}` yaz. Stiller (`--list-styles`):
+
+  | Stil | Ses dünyası | Uygun konular |
+  |---|---|---|
+  | `anadolu` | saz/bağlama, dem, darbuka/def; Hicaz, Uşşak, Rast, Hüseyni | yöresel yemek, çarşılar, Doğu/Güneydoğu şehirleri, geleneksel mekânlar |
+  | `urban` | kick/hat, synth bas, arpej | gökdelenler, teknoloji, AVM, gece hayatı, modern şehir |
+  | `lofi` | elektrik piyano, boom-bap, plak cızırtısı | kafeler, kitapçılar, kütüphaneler, pastaneler |
+  | `sinematik` | yaylılar, timpani, bakır | müzeler, kaleler, antik kentler, anıtlar, tarihi yapılar |
+  | `tropikal` | marimba, shaker, offbeat | plajlar, koylar, yaz/tatil mekânları |
+  | `akustik` | gitar arpeji, hafif perküsyon | parklar, doğa, yürüyüş, göller |
+  | `caz` | walking bas, ride, piyano | şık restoranlar, barlar, oteller |
+
+- **Özgünlük** — tohum (seed) başlık + öğe adlarından türetilir; melodi motifleri, ton, dizi/makam ve tempo her videoda değişir. Aynı konu için ikinci bir sürüm istenirse `"music": {"seed": 42}` ile farklı bir tohum ver.
+- **Görüntüyle senkron** — tempo, her sahne çift sayıda vuruş sürecek şekilde ince ayarlanır; her sahne geçişinde vurgu (darbuka geçişi / darbe / zil), girişte yükselen ses, finalde ek katman ve 2,5 sn kapanış vardır. Bu yüzden müziği **config son haline geldikten sonra** üret (öğe sayısı veya süre değişirse yeniden üret).
+- İnce ayar: `"music": {"style": "anadolu", "mode": "ussak", "bpm": 96}`. Kullanıcı belirli bir duygu/tempo isterse ("daha sakin", "daha hareketli") stil veya bpm ile karşıla.
+- Çıktı satırındaki stil/makam/bpm bilgisini sonuç mesajında kısaca kullanıcıya söyle.
 
 ## 4. Render ve kontrol
 

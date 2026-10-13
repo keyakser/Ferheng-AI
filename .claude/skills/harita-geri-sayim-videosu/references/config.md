@@ -27,6 +27,7 @@
 | `palette` | nesne | Renkleri değiştirmek için (aşağıya bakın). |
 | `sparks` | bool | Girişteki köz kıvılcımları (varsayılan açık). Yemek dışı konularda `false` olabilir. |
 | `street_labels` | bool | Pin çevresindeki sokak adı etiketleri (varsayılan açık). |
+| `music` | nesne | İsteğe bağlı müzik ayarı (`scripts/music.py --config` okur): `style` (anadolu, urban, lofi, sinematik, tropikal, akustik, caz; yoksa konu kelimelerinden otomatik), `mode` (hicaz, ussak, rast, huseyni, nihavend, major, minor, dorian, mixolydian, harmonic), `bpm`, `tonic` (Hz), `seed` (farklı varyasyon için). |
 | `credit` | metin | Alt künye: veri kaynakları. |
 | `outro` | metin | Final kapanış sözü ("Afiyet olsun!", "İyi yolculuklar!"). |
 
