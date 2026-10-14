@@ -190,14 +190,14 @@ function scene(u, idx){
   g.restore();
   const ap=easeOut(prog(u,1.0,1.6));
   if(ap>0&&it.addr){ g.save(); g.globalAlpha=ap; g.translate(0,(1-ap)*50);
-    const ay=1270, cw=940, cx=(W-cw)/2; rr(cx,ay,cw,240,28); g.fillStyle='rgba(246,234,216,0.96)'; g.fill();
+    const ay=it.img?1300:1270, cw=940, cx=(W-cw)/2; rr(cx,ay,cw,240,28); g.fillStyle='rgba(246,234,216,0.96)'; g.fill();
     g.fillStyle=one?C.gold:C.ember; rr(cx,ay,14,240,7); g.fill();
     g.textAlign='left'; g.font='800 24px Inter'; g.fillStyle=C.cardText; g.fillText(CFG.address_label||'ADRES', cx+48, ay+52);
     fitFont(it.addr[0]||'',700,42,cw-90,30,'Inter'); g.fillStyle=C.ink; g.fillText(it.addr[0]||'',cx+48,ay+108);
     fitFont(it.addr[1]||'',600,36,cw-90,28,'Inter'); g.fillStyle='#3d2c20'; g.fillText(it.addr[1]||'',cx+48,ay+156);
     if(it.area){ g.font='800 30px Inter'; g.fillStyle=C.cardText; g.fillText((it.area+(CFG.city?' / '+CFG.city:'')).toLocaleUpperCase('tr-TR'),cx+48,ay+208); }
     g.restore(); }
-  scaleBar(cam,1555); credit(1600);
+  scaleBar(cam,it.img?1590:1555); credit(it.img?1630:1600);
   const pw=W-160; for(let k=0;k<N;k++){ const x=80+k*pw/N; g.fillStyle='rgba(255,255,255,0.18)'; rr(x+4,172,pw/N-8,8,4); g.fill();
     const f=k<idx?1:k===idx?clamp(u/SCENE):0; if(f>0){ g.fillStyle=C.ember; rr(x+4,172,(pw/N-8)*f,8,4); g.fill(); } }
   const f=Math.max(1-prog(u,0,0.25), prog(u,SCENE-0.3,SCENE)); if(f>0){g.fillStyle=`rgba(0,0,0,${f})`;g.fillRect(0,0,W,H)}
@@ -206,15 +206,16 @@ function scene(u, idx){
 // polaroid tarzı foto kartı: sağda, hafif eğik; altında künye
 function photoCard(it,u){
   const p=easeOut(prog(u,0.9,1.5)); if(p<=0) return;
-  const fw=440, fh=560, x=W-fw/2-50, y=990, im=it.img;
+  // üstteki puan/istatistik satırı (~750) ile adres kartı (1300) arasındaki boşluğa sığar
+  const fh=420, fw=330, x=W-fw/2-70, y=775+16+fh/2, im=it.img;
   g.save(); g.globalAlpha=p; g.translate(x+(1-p)*200,y); g.rotate((it.photo_tilt??3)*Math.PI/180*(0.4+0.6*p));
   const zoom=1+0.06*prog(u,1,SCENE); // hafif Ken Burns
-  g.shadowColor='rgba(0,0,0,0.6)'; g.shadowBlur=40; g.fillStyle='#f8f3ea'; g.fillRect(-fw/2-16,-fh/2-16,fw+32,fh+76); g.shadowBlur=0;
+  g.shadowColor='rgba(0,0,0,0.6)'; g.shadowBlur=40; g.fillStyle='#f8f3ea'; g.fillRect(-fw/2-14,-fh/2-14,fw+28,fh+62); g.shadowBlur=0;
   g.save(); g.beginPath(); g.rect(-fw/2,-fh/2,fw,fh); g.clip();
   const sc=Math.max(fw/im.width,fh/im.height)*zoom, dw=im.width*sc, dh=im.height*sc;
   const fx=it.photo_focus?.[0]??0.5, fy=it.photo_focus?.[1]??0.5;
   g.drawImage(im,-fw/2-(dw-fw)*fx,-fh/2-(dh-fh)*fy,dw,dh); g.restore();
-  if(it.photo_credit){ g.fillStyle='#5a4a3c'; g.textAlign='center'; g.textBaseline='middle'; fitFont(it.photo_credit,500,17,fw,11,'Inter'); g.fillText(it.photo_credit,0,fh/2+32); }
+  if(it.photo_credit){ g.fillStyle='#5a4a3c'; g.textAlign='center'; g.textBaseline='middle'; fitFont(it.photo_credit,500,17,fw,11,'Inter'); g.fillText(it.photo_credit,0,fh/2+26); }
   g.restore();
 }
 
