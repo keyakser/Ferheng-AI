@@ -58,6 +58,11 @@ python $SKILL_DIR/scripts/music.py --config $WORK/config.json --out $WORK/music.
 
 - **config.json**: `assets/example_config.json`'u örnek al; tüm alanlar `references/config.md`'de. Süre: `target_seconds` (varsayılan 60) → müzik süresi de bu olmalı (`intro + sahne×N + final`; şablon `TOTAL`'ı buna göre hesaplar).
 - **Harita stili**: Şablon, uydu görüntüsü değil kendi çizdiği vektör stilini kullanır (zemin, binalar, yol hiyerarşisi, su). Konuya uygun paleti `palette` ile seç (`references/config.md` içinde hazır paletler var). Kullanıcı açıkça uydu görüntüsü istemedikçe uydu kullanma.
+- **Renk kontrastı**: Kara, deniz ve yollar telefonda bir bakışta ayırt edilebilmeli; bir kullanıcı lacivert kara + lacivert denizde kıyıyı göremediğini söyledi. Kara için nötr/sıcak bir ton, deniz için doygun mavi, yollar için denizden farklı (sıcak) bir renk seç ve paleti kontrol et:
+  ```bash
+  python $SKILL_DIR/scripts/check_palette.py $WORK/config.json   # tüm satırlar ✓ olmalı
+  ```
+- **Deniz/göl kıyısı olan şehirler**: Denizi bbox'tan geniş indir (`fetch_overture.py --only water --bbox <daha geniş kutu>`); aksi halde uzak planda denizin kesildiği düz bir kenar görünür. Sonra `build_mapdata.py`'yi yeniden çalıştır.
 - **Koordinatlar ekrana yazılmaz**; sadece pin konumu içindir. Adres kartı mahalle/cadde/sokak/no ve ilçe gösterir.
 - `district_labels` ile 3–6 semt adı, `water_labels` ile nehir/göl adı ekle (uzak planda görünür).
 - Birkaç öğe birbirine 300 m'den yakınsa `closeup` ekle (final yakın planı) ve etiket ofsetlerini çakışmayacak şekilde ver.

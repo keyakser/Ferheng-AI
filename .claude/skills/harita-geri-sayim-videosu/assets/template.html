@@ -75,9 +75,15 @@ function drawMap(cam){
   const vis=bb=>!(bb[0]>vx1||bb[2]<vx0||bb[1]>vy1||bb[3]<vy0);
   const path=a=>{g.beginPath();for(let i=0;i<a.length;i+=2){const X=cam.sx+(a[i]-cam.x)*cam.s,Y=cam.sy+(a[i+1]-cam.y)*cam.s;i?g.lineTo(X,Y):g.moveTo(X,Y)}};
   g.lineCap='round'; g.lineJoin='round';
-  for(const w of M.water){ if(!vis(w.bb)) continue; path(w[2]);
-    if(w[0]){ g.closePath(); for(const h of (w[3]||[])){ for(let i=0;i<h.length;i+=2){const X=cam.sx+(h[i]-cam.x)*cam.s,Y=cam.sy+(h[i+1]-cam.y)*cam.s;i?g.lineTo(X,Y):g.moveTo(X,Y)} g.closePath(); } g.fillStyle=C.water; g.fill('evenodd'); g.strokeStyle=C.waterS; g.lineWidth=Math.max(1.5,3*Math.min(1,cam.s)); g.stroke(); }
-    else { const ww=w[1]==='river'?40:w[1]==='canal'?8:4; g.strokeStyle=C.water; g.lineWidth=Math.max(1.5,ww*cam.s); g.stroke(); } }
+  // Su iki geçişte çizilir: önce kıyı parıltısı + çizgi, sonra dolgu üstüne. Böylece büyük deniz
+  // poligonlarının karo (tile) birleşim çizgileri dolguyla örtülür; yalnızca gerçek kıyı (kara tarafı) görünür.
+  const polyPath=w=>{ path(w[2]); g.closePath(); for(const h of (w[3]||[])){ for(let i=0;i<h.length;i+=2){const X=cam.sx+(h[i]-cam.x)*cam.s,Y=cam.sy+(h[i+1]-cam.y)*cam.s;i?g.lineTo(X,Y):g.moveTo(X,Y)} g.closePath(); } };
+  const wv=M.water.filter(w=>vis(w.bb));
+  for(const w of wv){ if(!w[0]) continue; polyPath(w);
+    g.save(); g.strokeStyle=C.waterS; g.globalAlpha=0.25; g.lineWidth=Math.max(10,26*Math.min(1,cam.s*2)); g.stroke(); g.restore();
+    g.strokeStyle=C.waterS; g.lineWidth=Math.max(3.5,6*Math.min(1,cam.s)); g.stroke(); }
+  for(const w of wv){ if(w[0]){ polyPath(w); g.fillStyle=C.water; g.fill('evenodd'); }
+    else { path(w[2]); const ww=w[1]==='river'?40:w[1]==='canal'?8:4; g.strokeStyle=C.water; g.lineWidth=Math.max(1.5,ww*cam.s); g.stroke(); } }
   g.fillStyle=C.bld; g.strokeStyle=C.bldS; g.lineWidth=1;
   for(const b of M.bld){ if(!vis(b.bb)) continue; if(cam.s<0.25&&(b.bb[2]-b.bb[0])*cam.s<1.2) continue; path(b.a); g.closePath(); g.fill(); if(cam.s>0.4) g.stroke(); }
   const roadW=c=>(c>=5?18:c>=4?14:c>=3?10:c>=2?7:4), minS=c=>c>=4?0:c>=3?0.1:c>=2?0.22:0.5;

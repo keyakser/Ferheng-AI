@@ -40,5 +40,12 @@
 Hazır palet önerileri:
 
 - **Bazalt & köz (varsayılan)** — yemek, gece hayatı, tarih.
-- **Gece mavisi**: `{"land":"#0f1724","land2":"#16233a","bld":"#1f2f48","bldS":"#2b4062","roadMajor":"#5fd3ff","roadMid":"#b9d8ff","roadMinor":"#6a84a8","casing":"#070b12","ember":"#3fb6ff","shade":"8,12,20","cardText":"#1f5f99","water":"#123a5c","waterS":"#5fb0e0"}` — teknoloji, ulaşım, kafe.
+- **Gece (grafit + mavi deniz)**: `{"land":"#1d2026","land2":"#25282f","bld":"#353942","bldS":"#454a55","water":"#0f5e9c","waterS":"#6fd0ff","roadMajor":"#ffc857","roadMid":"#ece6d8","roadMinor":"#8b919b","casing":"#0b0c10","ember":"#3fb6ff","shade":"10,12,16","cardText":"#1f5f99","muted":"#aab4c3"}` — gökdelenler, teknoloji, kıyı şehirleri. (Eski "gece mavisi" paleti kara ve denizi aynı lacivert ailesinden seçtiği için kıyı görünmüyordu; kaldırıldı.)
 - **Yeşil vadi**: `{"land":"#16201a","land2":"#1d2a22","bld":"#2a3a2f","bldS":"#38503f","roadMajor":"#ffd35a","roadMid":"#e7e0b8","roadMinor":"#8fa38f","casing":"#0b120d","ember":"#6fcf5a","shade":"10,16,12","cardText":"#2f7a32"}` — parklar, doğa, spor.
+
+## Palet kuralı: kara, deniz ve yollar ayırt edilmeli
+
+Kara ile deniz aynı ton ailesinden olmamalı (lacivert kara + lacivert deniz = kıyı kaybolur). Yöntem:
+nötr/sıcak kara (grafit, kahve) + doygun mavi/turkuaz deniz + denizden farklı tonda yollar (altın, krem, turuncu).
+Her yeni palette `python scripts/check_palette.py WORK/config.json` çalıştır; tüm kontroller ✓ olmalı
+(kara↔deniz ΔE ≥ 25, bina↔deniz ≥ 20, yollar↔kara/deniz ≥ 30, kıyı çizgisi↔kara ≥ 30).
